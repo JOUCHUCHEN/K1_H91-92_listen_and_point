@@ -199,6 +199,7 @@
         const btnStart = document.getElementById('btn-start-camera');
         const gameUI = document.getElementById('game-ui');
 
+        // 音效物件
         const audioCorrect = new Audio('https://raw.githubusercontent.com/JOUCHUCHEN/listen_and_point/main/correct.mp3');
         const audioError = new Audio('https://raw.githubusercontent.com/JOUCHUCHEN/listen_and_point/main/error.mp3');
         audioCorrect.volume = 1.0;
@@ -217,28 +218,21 @@
             { id: 3, name: 'Rabbit', audioUrl: 'https://raw.githubusercontent.com/JOUCHUCHEN/listen_and_point/main/30-3-rabbit.mp3' }
         ];
 
-        // 靜音播放以解鎖所有音軌
-        async function unlockAudio() {
-            try {
-                // 播放一段超短的靜音
-                const silentPlay = () => {
-                    const audio = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA== ");
-                    audio.play();
-                };
-                silentPlay();
-                
-                // 預熱音軌
-                audioCorrect.load();
-                audioError.load();
-            } catch (e) {
-                console.log("Audio unlock failed:", e);
-            }
+        // 手機版音訊解鎖（靜音播放法）
+        function unlockAudio() {
+            // 在點擊當下立即啟動一個靜音音軌以取得授權
+            const silent = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA== ");
+            silent.play().catch(() => {});
+            
+            // 預載正式音軌
+            audioCorrect.load();
+            audioError.load();
         }
 
         function playWordAudio(url) {
             const audio = new Audio(url);
             audio.volume = 1.0;
-            audio.play().catch(e => console.log("Audio failed", e));
+            audio.play().catch(e => console.log("播放失敗", e));
         }
 
         function playRound(btnIndex) {
@@ -264,8 +258,10 @@
             
             const cWidth = container.clientWidth;
             const cHeight = container.clientHeight;
-            canvasElement.width = cWidth;
-            canvasElement.height = cHeight;
+            if (canvasElement.width !== cWidth || canvasElement.height !== cHeight) {
+                canvasElement.width = cWidth;
+                canvasElement.height = cHeight;
+            }
 
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, cWidth, cHeight);
@@ -337,7 +333,7 @@
             statusMsg.innerText = "太棒了！答對了！";
             
             audioCorrect.currentTime = 0;
-            audioCorrect.play().catch(e => console.error("Correct sound blocked"));
+            audioCorrect.play().catch(() => {});
             
             confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
 
@@ -358,7 +354,7 @@
             statusMsg.innerText = "不對喔，再試試看！";
             
             audioError.currentTime = 0;
-            audioError.play().catch(e => console.error("Error sound blocked"));
+            audioError.play().catch(() => {});
 
             setTimeout(() => {
                 wrongEl.classList.remove('wrong');
@@ -366,7 +362,7 @@
             }, 500);
         }
 
-        // 初始化 MediaPipe
+        // 初始化 Hands 模型
         const hands = new Hands({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
@@ -380,25 +376,22 @@
 
         hands.onResults(onResults);
 
-        // 改良啟動邏輯
+        // 啟動相機邏輯
         async function startCamera() {
             btnStart.disabled = true;
-            btnStart.innerText = "初始化音訊與模型...";
+            btnStart.innerText = "正在連線...";
             
-            // 1. 同步解鎖音訊
-            await unlockAudio();
+            // 點擊當下立即解鎖音效（手機版關鍵）
+            unlockAudio();
             
-            statusMsg.innerText = "正在連線攝影機...";
+            statusMsg.innerText = "正在取得攝影機權限...";
             
             try {
-                const constraints = { 
-                    video: { 
-                        facingMode: "user",
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    } 
-                };
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                // 直接嘗試取得視訊流，這會觸發瀏覽器權限視窗
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } 
+                });
+                
                 videoElement.srcObject = stream;
                 
                 videoElement.onloadedmetadata = () => {
@@ -406,8 +399,9 @@
                     isCameraActive = true;
                     initPanel.style.display = 'none';
                     gameUI.classList.remove('hidden');
-                    statusMsg.innerText = "準備就緒！請點擊按鈕測驗。";
+                    statusMsg.innerText = "連線成功！請點擊下方按鈕。";
                     
+                    // 開始 AI 偵測循環
                     const processFrame = async () => {
                         if (isCameraActive) {
                             await hands.send({ image: videoElement });
@@ -417,10 +411,10 @@
                     processFrame();
                 };
             } catch (err) {
-                console.error(err);
+                console.error("相機啟動錯誤:", err);
                 startView.classList.add('hidden');
                 errorView.classList.remove('hidden');
-                document.getElementById('error-desc').innerText = "請開啟攝影機權限並重新整理。建議使用 Chrome 或 Safari 瀏覽器。";
+                document.getElementById('error-desc').innerText = "無法開啟攝影機。請確認已開啟權限並重新整理。建議使用原製瀏覽器 (Safari/Chrome)。";
             }
         }
 
