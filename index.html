@@ -93,11 +93,16 @@
         <p class="text-gray-600 text-xs md:text-lg">聽聽單字，指向正確的圖片</p>
     </div>
 
-    <!-- 主要內容區域：在橫向模式下改為左右排列 -->
-    <div class="flex flex-col lg:flex-row items-center justify-center gap-4 w-full max-w-6xl">
+    <!-- 
+        主要內容佈局：
+        1. 預設垂直排版 (flex-col)
+        2. 手機橫向模式切換為水平排版 (landscape:flex-row)
+        3. 電腦/大螢幕強制回歸垂直排版 (lg:flex-col) 
+    -->
+    <div class="flex flex-col landscape:flex-row lg:flex-col items-center justify-center gap-4 w-full max-w-6xl">
         
-        <!-- 左側：視訊畫面 -->
-        <div class="w-full lg:w-2/3 flex flex-col items-center">
+        <!-- 視訊畫面區塊 -->
+        <div class="w-full landscape:w-2/3 lg:w-full flex flex-col items-center">
             <div id="video-container" class="aspect-video flex items-center justify-center">
                 <video id="input_video" class="mirror" style="display:none" playsinline muted></video>
                 <canvas id="output_canvas"></canvas>
@@ -126,8 +131,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                             </svg>
                         </div>
-                        <h2 class="text-lg md:text-2xl font-bold mb-2">準備開始互動教學</h2>
-                        <p class="text-gray-600 text-xs md:text-base mb-4">點擊按鈕啟動攝影機</p>
+                        <h2 class="text-lg md:text-2xl font-bold mb-2">啟動互動教學</h2>
                         <button id="btn-start-camera" class="bg-blue-600 hover:bg-blue-700 text-white text-md md:text-xl font-bold py-2 px-6 md:py-4 md:px-12 rounded-full shadow-xl transition transform active:scale-95">
                             立即啟動
                         </button>
@@ -141,15 +145,21 @@
                     </div>
                 </div>
             </div>
-            <!-- 狀態文字 (放在視訊下方) -->
+            <!-- 狀態提示 -->
             <div id="status-msg" class="mt-2 text-sm md:text-xl text-blue-700 font-semibold h-6 text-center">
-                請啟動攝影機
+                請點擊按鈕開始
             </div>
         </div>
 
-        <!-- 右側：發音按鈕 -->
-        <div class="w-full lg:w-1/3 flex flex-col gap-3 px-2">
-            <div class="grid grid-cols-2 lg:grid-cols-1 gap-3 md:gap-4">
+        <!-- 發音按鈕區塊 -->
+        <div class="w-full landscape:w-1/3 lg:w-full flex flex-col gap-3 px-2">
+            <!-- 
+                按鈕網格佈局：
+                1. 預設兩欄 (grid-cols-2)
+                2. 手機橫放改為單欄以適應高度 (landscape:grid-cols-1)
+                3. 電腦版恢復為四欄橫排 (lg:grid-cols-4)
+            -->
+            <div class="grid grid-cols-2 landscape:grid-cols-1 lg:grid-cols-4 gap-3 md:gap-4">
                 <button onclick="playRound(0)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 lg:py-6 rounded-2xl shadow-lg transition transform active:scale-95 text-xl md:text-3xl">Cat</button>
                 <button onclick="playRound(1)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 lg:py-6 rounded-2xl shadow-lg transition transform active:scale-95 text-xl md:text-3xl">Turtle</button>
                 <button onclick="playRound(2)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 lg:py-6 rounded-2xl shadow-lg transition transform active:scale-95 text-xl md:text-3xl">Bird</button>
@@ -302,7 +312,7 @@
             statusMsg.innerText = "Great Job!";
             
             audioCorrect.currentTime = 0;
-            audioCorrect.play().catch(e => console.error("Correct sound blocked:", e));
+            audioCorrect.play().catch(e => console.error("Sound blocked"));
             
             confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
 
@@ -323,7 +333,7 @@
             statusMsg.innerText = "Try again!";
             
             audioError.currentTime = 0;
-            audioError.play().catch(e => console.error("Error sound blocked:", e));
+            audioError.play().catch(e => console.error("Sound blocked"));
 
             setTimeout(() => {
                 wrongEl.classList.remove('wrong');
@@ -347,7 +357,6 @@
         async function startCamera() {
             btnStart.disabled = true;
             btnStart.innerText = "啟動中...";
-            
             unlockAudio();
             
             try {
@@ -366,7 +375,7 @@
                     isCameraActive = true;
                     initPanel.style.display = 'none';
                     gameUI.classList.remove('hidden');
-                    statusMsg.innerText = "Ready! Click a button.";
+                    statusMsg.innerText = "Ready!";
                     
                     const processFrame = async () => {
                         if (isCameraActive) {
@@ -380,7 +389,7 @@
                 console.error(err);
                 startView.classList.add('hidden');
                 errorView.classList.remove('hidden');
-                document.getElementById('error-desc').innerText = "請開啟攝影機權限並重整。";
+                document.getElementById('error-desc').innerText = "請開啟權限並重整。";
             }
         }
 
