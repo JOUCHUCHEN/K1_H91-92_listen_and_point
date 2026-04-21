@@ -24,8 +24,8 @@
             border: 4px solid transparent;
             position: absolute;
             width: 22%; 
-            min-width: 80px;
-            max-width: 180px;
+            min-width: 60px;
+            max-width: 150px;
             aspect-ratio: 1 / 1;
             overflow: hidden;
             border-radius: 15%;
@@ -37,13 +37,14 @@
             .target-box {
                 border-width: 6px;
                 width: 25%;
+                max-width: 180px;
             }
         }
 
         .target-box.success {
             border-color: #34d399;
             background-color: rgba(52, 211, 153, 0.4);
-            transform: scale(1.15);
+            transform: scale(1.1);
             z-index: 30;
         }
         
@@ -64,8 +65,6 @@
         #video-container {
             position: relative;
             width: 100%;
-            max-width: 800px;
-            margin: 0 auto;
             border-radius: 20px;
             overflow: hidden;
             box-shadow: 0 10px 25px rgba(0,0,0,0.1);
@@ -88,65 +87,76 @@
 </head>
 <body class="flex flex-col items-center justify-start min-h-screen p-2 md:p-4">
 
-    <div class="text-center mb-4 md:mb-6 mt-2">
-        <h1 class="text-3xl md:text-4xl font-bold text-blue-600 mb-1">Listen and Point!</h1>
-        <p class="text-gray-600 text-sm md:text-lg">聽聽單字，指向正確的圖片</p>
+    <!-- 標題區域 -->
+    <div class="text-center mb-2 md:mb-6 mt-2">
+        <h1 class="text-2xl md:text-4xl font-bold text-blue-600 mb-1">Listen and Point!</h1>
+        <p class="text-gray-600 text-xs md:text-lg">聽聽單字，指向正確的圖片</p>
     </div>
 
-    <div id="video-container" class="aspect-video flex items-center justify-center">
-        <video id="input_video" class="mirror" style="display:none" playsinline muted></video>
-        <canvas id="output_canvas"></canvas>
+    <!-- 主要內容區域：在橫向模式下改為左右排列 -->
+    <div class="flex flex-col lg:flex-row items-center justify-center gap-4 w-full max-w-6xl">
         
-        <!-- 遊戲區域 UI -->
-        <div id="game-ui" class="hidden contents">
-            <div id="target-0" class="target-box top-2 left-2 md:top-4 md:left-4 z-10">
-                <img src="https://i.ibb.co/sv1J8yrt/chiemsee2024-cat-1192026-640.jpg" alt="Cat" class="animal-img">
-            </div>
-            <div id="target-1" class="target-box top-2 right-2 md:top-4 md:right-4 z-10">
-                <img src="https://i.ibb.co/GvS5ZZFv/pexels-turtle-1850190-640.jpg" alt="Turtle" class="animal-img">
-            </div>
-            <div id="target-2" class="target-box bottom-2 left-2 md:bottom-4 md:left-4 z-10">
-                <img src="https://i.ibb.co/5XJQMrtt/balouriarajesh-indian-chat-7704561-640.jpg" alt="Bird" class="animal-img">
-            </div>
-            <div id="target-3" class="target-box bottom-2 right-2 md:bottom-4 md:right-4 z-10">
-                <img src="https://i.ibb.co/mFrK8p4M/vijakob-rabbits-5132644-640.jpg" alt="Rabbit" class="animal-img">
-            </div>
-        </div>
-
-        <!-- 啟動面板 -->
-        <div id="init-panel" class="absolute inset-0 bg-white bg-opacity-95 flex flex-col items-center justify-center z-40 p-4 text-center">
-            <div id="start-view">
-                <div class="mb-4 text-blue-500">
-                    <svg class="w-16 h-16 md:w-20 md:h-20 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
-                    </svg>
+        <!-- 左側：視訊畫面 -->
+        <div class="w-full lg:w-2/3 flex flex-col items-center">
+            <div id="video-container" class="aspect-video flex items-center justify-center">
+                <video id="input_video" class="mirror" style="display:none" playsinline muted></video>
+                <canvas id="output_canvas"></canvas>
+                
+                <!-- 遊戲區域 UI -->
+                <div id="game-ui" class="hidden contents">
+                    <div id="target-0" class="target-box top-2 left-2 md:top-4 md:left-4 z-10">
+                        <img src="https://i.ibb.co/sv1J8yrt/chiemsee2024-cat-1192026-640.jpg" alt="Cat" class="animal-img">
+                    </div>
+                    <div id="target-1" class="target-box top-2 right-2 md:top-4 md:right-4 z-10">
+                        <img src="https://i.ibb.co/GvS5ZZFv/pexels-turtle-1850190-640.jpg" alt="Turtle" class="animal-img">
+                    </div>
+                    <div id="target-2" class="target-box bottom-2 left-2 md:bottom-4 md:left-4 z-10">
+                        <img src="https://i.ibb.co/5XJQMrtt/balouriarajesh-indian-chat-7704561-640.jpg" alt="Bird" class="animal-img">
+                    </div>
+                    <div id="target-3" class="target-box bottom-2 right-2 md:bottom-4 md:right-4 z-10">
+                        <img src="https://i.ibb.co/mFrK8p4M/vijakob-rabbits-5132644-640.jpg" alt="Rabbit" class="animal-img">
+                    </div>
                 </div>
-                <h2 class="text-xl md:text-2xl font-bold mb-2">準備開始互動教學</h2>
-                <p class="text-gray-600 text-sm md:text-base mb-6">請點擊下方按鈕啟動攝影機。<br>建議將手機橫放使用，效果更佳！</p>
-                <button id="btn-start-camera" class="bg-blue-600 hover:bg-blue-700 text-white text-lg md:text-xl font-bold py-3 px-8 md:py-4 md:px-12 rounded-full shadow-xl transition transform active:scale-95">
-                    立即啟動
-                </button>
+
+                <!-- 啟動面板 -->
+                <div id="init-panel" class="absolute inset-0 bg-white bg-opacity-95 flex flex-col items-center justify-center z-40 p-4 text-center">
+                    <div id="start-view">
+                        <div class="mb-4 text-blue-500">
+                            <svg class="w-12 h-12 md:w-20 md:h-20 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                        </div>
+                        <h2 class="text-lg md:text-2xl font-bold mb-2">準備開始互動教學</h2>
+                        <p class="text-gray-600 text-xs md:text-base mb-4">點擊按鈕啟動攝影機</p>
+                        <button id="btn-start-camera" class="bg-blue-600 hover:bg-blue-700 text-white text-md md:text-xl font-bold py-2 px-6 md:py-4 md:px-12 rounded-full shadow-xl transition transform active:scale-95">
+                            立即啟動
+                        </button>
+                    </div>
+                    
+                    <div id="error-view" class="hidden p-4">
+                        <div class="text-red-500 text-4xl mb-2">⚠️</div>
+                        <h2 id="error-title" class="text-lg font-bold text-gray-800 mb-1">攝影機啟動失敗</h2>
+                        <div id="error-desc" class="text-gray-700 text-xs mb-4"></div>
+                        <button onclick="location.reload()" class="bg-gray-800 text-white py-2 px-6 rounded-full text-sm">重試一次</button>
+                    </div>
+                </div>
             </div>
-            
-            <div id="error-view" class="hidden p-4">
-                <div class="text-red-500 text-5xl mb-2">⚠️</div>
-                <h2 id="error-title" class="text-lg font-bold text-gray-800 mb-1">攝影機啟動失敗</h2>
-                <div id="error-desc" class="text-gray-700 text-xs md:text-sm mb-4"></div>
-                <button onclick="location.reload()" class="bg-gray-800 text-white py-2 px-6 rounded-full">重試一次</button>
+            <!-- 狀態文字 (放在視訊下方) -->
+            <div id="status-msg" class="mt-2 text-sm md:text-xl text-blue-700 font-semibold h-6 text-center">
+                請啟動攝影機
             </div>
         </div>
-    </div>
 
-    <!-- 按鈕區域 -->
-    <div class="mt-4 md:mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 w-full max-w-4xl px-2">
-        <button onclick="playRound(0)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 md:py-6 rounded-2xl shadow-lg transition transform active:scale-95 text-xl md:text-3xl">Cat</button>
-        <button onclick="playRound(1)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 md:py-6 rounded-2xl shadow-lg transition transform active:scale-95 text-xl md:text-3xl">Turtle</button>
-        <button onclick="playRound(2)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 md:py-6 rounded-2xl shadow-lg transition transform active:scale-95 text-xl md:text-3xl">Bird</button>
-        <button onclick="playRound(3)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 md:py-6 rounded-2xl shadow-lg transition transform active:scale-95 text-xl md:text-3xl">Rabbit</button>
-    </div>
+        <!-- 右側：發音按鈕 -->
+        <div class="w-full lg:w-1/3 flex flex-col gap-3 px-2">
+            <div class="grid grid-cols-2 lg:grid-cols-1 gap-3 md:gap-4">
+                <button onclick="playRound(0)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 lg:py-6 rounded-2xl shadow-lg transition transform active:scale-95 text-xl md:text-3xl">Cat</button>
+                <button onclick="playRound(1)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 lg:py-6 rounded-2xl shadow-lg transition transform active:scale-95 text-xl md:text-3xl">Turtle</button>
+                <button onclick="playRound(2)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 lg:py-6 rounded-2xl shadow-lg transition transform active:scale-95 text-xl md:text-3xl">Bird</button>
+                <button onclick="playRound(3)" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 lg:py-6 rounded-2xl shadow-lg transition transform active:scale-95 text-xl md:text-3xl">Rabbit</button>
+            </div>
+        </div>
 
-    <div id="status-msg" class="mt-4 text-base md:text-xl text-blue-700 font-semibold h-6 text-center">
-        請啟動攝影機
     </div>
 
     <script>
@@ -178,7 +188,6 @@
             { id: 3, name: 'Rabbit', audioUrl: 'https://raw.githubusercontent.com/JOUCHUCHEN/listen_and_point/main/30-3-rabbit.mp3' }
         ];
 
-        // 手機版解鎖音訊功能
         function unlockAudio() {
             audioCorrect.play().then(() => {
                 audioCorrect.pause();
@@ -218,7 +227,6 @@
             if (!isCameraActive) return;
             const container = document.getElementById('video-container');
             
-            // 同步畫布尺寸
             const cWidth = container.clientWidth;
             const cHeight = container.clientHeight;
             canvasElement.width = cWidth;
@@ -227,7 +235,6 @@
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, cWidth, cHeight);
             
-            // 解決變形問題：使用裁切填滿 (Cover) 邏輯繪製視訊
             const vWidth = results.image.width;
             const vHeight = results.image.height;
             const scale = Math.max(cWidth / vWidth, cHeight / vHeight);
@@ -236,7 +243,6 @@
             const offsetLeft = (cWidth - drawWidth) / 2;
             const offsetTop = (cHeight - drawHeight) / 2;
 
-            // 鏡像與繪製
             canvasCtx.translate(cWidth, 0);
             canvasCtx.scale(-1, 1);
             canvasCtx.drawImage(results.image, offsetLeft, offsetTop, drawWidth, drawHeight);
@@ -248,7 +254,6 @@
                     const x = (1 - indexFingerTip.x) * cWidth;
                     const y = indexFingerTip.y * cHeight;
 
-                    // 繪製手指追蹤點
                     canvasCtx.beginPath();
                     canvasCtx.arc(x, y, 12, 0, 2 * Math.PI);
                     canvasCtx.fillStyle = isSuccess ? '#34d399' : '#fbbf24';
@@ -296,7 +301,6 @@
             targetEl.classList.add('success');
             statusMsg.innerText = "Great Job!";
             
-            // 播放正確音效
             audioCorrect.currentTime = 0;
             audioCorrect.play().catch(e => console.error("Correct sound blocked:", e));
             
@@ -318,7 +322,6 @@
             wrongEl.classList.add('wrong');
             statusMsg.innerText = "Try again!";
             
-            // 播放錯誤音效
             audioError.currentTime = 0;
             audioError.play().catch(e => console.error("Error sound blocked:", e));
 
@@ -345,7 +348,6 @@
             btnStart.disabled = true;
             btnStart.innerText = "啟動中...";
             
-            // 解鎖手機版音訊
             unlockAudio();
             
             try {
@@ -378,7 +380,7 @@
                 console.error(err);
                 startView.classList.add('hidden');
                 errorView.classList.remove('hidden');
-                document.getElementById('error-desc').innerText = "請確認已開啟攝影機權限並重新整理。";
+                document.getElementById('error-desc').innerText = "請開啟攝影機權限並重整。";
             }
         }
 
