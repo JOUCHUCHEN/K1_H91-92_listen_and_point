@@ -94,7 +94,7 @@
             80% { transform: translateX(10px); }
         }
 
-        /* Level 2 模式：平常透明無邊框。覆寫 transition 以防止切換時圓框閃爍 */
+        /* Level 2 模式：平常透明無邊框 */
         .target-box.level-2-mode {
             border-color: transparent !important;
             background-color: transparent !important;
@@ -103,7 +103,7 @@
             transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.3s;
         }
 
-        /* 當在 Level 2 答對或答錯時，僅保留發光特效與動畫，不恢復白色圓框 */
+        /* 當在 Level 2 答對或答錯時，僅保留發光特效與動畫 */
         .target-box.level-2-mode.success, 
         .target-box.level-2-mode.wrong {
             background-color: transparent !important;
@@ -111,11 +111,11 @@
             box-shadow: none;
         }
 
-        /* 個別設定動物在 Level 2 的大小 */
+        /* 設定動物在 Level 2 的大小 */
         #target-0.level-2-mode { width: 28%; } /* 貓咪 */
-        #target-1.level-2-mode { width: 25%; } /* 烏龜 (25%) */
-        #target-2.level-2-mode { width: 32%; } /* 小鳥 (32%) */
-        #target-3.level-2-mode { width: 30%; } /* 兔子 (30%) */
+        #target-1.level-2-mode { width: 25%; } /* 烏龜 */
+        #target-2.level-2-mode { width: 32%; } /* 小鳥 */
+        #target-3.level-2-mode { width: 30%; } /* 兔子 */
 
         canvas {
             position: absolute;
@@ -229,18 +229,20 @@
             <canvas id="output_canvas"></canvas>
             
             <div id="game-ui" class="hidden absolute inset-0 pointer-events-none">
-                <div id="target-0" class="target-box" style="top: 4cqh; left: 4cqh;"><img src="img/cat.png" class="animal-img"></div>
-                <div id="target-1" class="target-box" style="top: 4cqh; right: 4cqh;"><img src="img/turtle.png" class="animal-img"></div>
-                <div id="target-2" class="target-box" style="bottom: 4cqh; left: 4cqh;"><img src="img/bird.png" class="animal-img"></div>
-                <div id="target-3" class="target-box" style="bottom: 4cqh; right: 4cqh;"><img src="img/rabbit.png" class="animal-img"></div>
+                <!-- 第一關初始圖片 -->
+                <div id="target-0" class="target-box" style="top: 4cqh; left: 4cqh;"><img src="https://i.ibb.co/qLSbRGjP/cat.png" class="animal-img"></div>
+                <div id="target-1" class="target-box" style="top: 4cqh; right: 4cqh;"><img src="https://i.ibb.co/tpHfWWJK/turtle.png" class="animal-img"></div>
+                <div id="target-2" class="target-box" style="bottom: 4cqh; left: 4cqh;"><img src="https://i.ibb.co/RT0KwhTL/bird.png" class="animal-img"></div>
+                <div id="target-3" class="target-box" style="bottom: 4cqh; right: 4cqh;"><img src="https://i.ibb.co/Ngcgccsy/rabbit.png" class="animal-img"></div>
             </div>
 
             <div id="init-panel" class="absolute inset-0 bg-[#f8fafc] flex flex-col items-center justify-center z-40">
                 <div class="mt-[4cqh] mb-[2cqh] flex gap-[2cqw]">
-                    <img src="img/cat-nobg.png" class="jumping-animal">
-                    <img src="img/bird-nobg.png" class="jumping-animal">
-                    <img src="img/rabbit-nobg.png" class="jumping-animal">
-                    <img src="img/turtle-nobg.png" class="jumping-animal">
+                    <!-- 首頁 Nobg 圖片 -->
+                    <img src="https://i.ibb.co/T6CJbhv/cat-nobg.png" class="jumping-animal">
+                    <img src="https://i.ibb.co/TxVXt956/bird-nobg.png" class="jumping-animal">
+                    <img src="https://i.ibb.co/6cZNJRgs/rabbit-nobg.png" class="jumping-animal">
+                    <img src="https://i.ibb.co/cSMhTsMm/turtle-nobg.png" class="jumping-animal">
                 </div>
                 <h2 class="font-black mb-[4cqh] tracking-wide" style="color: #0369a1; font-size: 11cqh; -webkit-text-stroke: 0.15cqw #0369a1;">Ready?</h2>
                 <button id="btn-start-camera" class="bg-[#f09f3b] hover:bg-[#df8a28] text-white font-black rounded-full transition transform active:scale-95" style="font-size: 5.5cqh; padding: 2.5cqh 12cqw; box-shadow: 0 1cqh 3cqh rgba(240, 159, 59, 0.4);">GO !</button>
@@ -277,20 +279,22 @@
         let audioCtx = null;
         const audioBufferCache = {}; 
 
-        const bgmAudio = new Audio('sound/bgm.mp3');
+        // 更新背景音樂
+        const bgmAudio = new Audio('https://raw.githubusercontent.com/JOUCHUCHEN/K1_H91-92_listen_and_point/main/bgm.mp3');
         bgmAudio.loop = true;
 
         const BGM_VOL = 0.2;    
         const WORD_BOOST = 2.5;     
         const FEEDBACK_BOOST = 2.0; 
 
+        // 更新反饋音效
         const feedbackSounds = {
-            correctFX: 'sound/correct.mp3',
-            errorFX: 'sound/error.mp3',
-            tryAgain: 'sound/try again.mp3',
-            great: 'sound/great.mp3',
-            goodJob: 'sound/good job.mp3',
-            wayToGo: 'sound/way to go.mp3'
+            correctFX: 'https://raw.githubusercontent.com/JOUCHUCHEN/K1_H91-92_listen_and_point/main/correct.mp3',
+            errorFX: 'https://raw.githubusercontent.com/JOUCHUCHEN/K1_H91-92_listen_and_point/main/error.mp3',
+            tryAgain: 'https://raw.githubusercontent.com/JOUCHUCHEN/K1_H91-92_listen_and_point/main/try%20again.mp3',
+            great: 'https://raw.githubusercontent.com/JOUCHUCHEN/K1_H91-92_listen_and_point/main/great.mp3',
+            goodJob: 'https://raw.githubusercontent.com/JOUCHUCHEN/K1_H91-92_listen_and_point/main/good%20job.mp3',
+            wayToGo: 'https://raw.githubusercontent.com/JOUCHUCHEN/K1_H91-92_listen_and_point/main/way%20to%20go.mp3'
         };
         
         const animals = [
@@ -377,29 +381,29 @@
             if (isLevel2) {
                 btn.innerHTML = 'Level 1 🏠';
                 btn.classList.replace('bg-[#8b5cf6]', 'bg-[#3b82f6]');
-                document.querySelector('#target-0 .animal-img').src = 'img/cat-walk.gif';
-                document.querySelector('#target-1 .animal-img').src = 'img/turtle-2.png'; 
-                document.querySelector('#target-2 .animal-img').src = 'img/bird-fly.gif';
-                document.querySelector('#target-3 .animal-img').src = 'img/rabbit-run.gif';
+                // 更新第二關動態圖片
+                document.querySelector('#target-0 .animal-img').src = 'https://i.ibb.co/H847XD1/cat-walk.gif';
+                document.querySelector('#target-1 .animal-img').src = 'https://i.ibb.co/7dvB3gTs/turtle-2.png'; 
+                document.querySelector('#target-2 .animal-img').src = 'https://i.ibb.co/m5j29Bk5/bird-fly.gif';
+                document.querySelector('#target-3 .animal-img').src = 'https://i.ibb.co/8DHRPsyk/rabbit-run.gif';
                 const rect = container.getBoundingClientRect();
                 animalsPos.forEach(anim => {
                     if (!anim.el) anim.el = document.getElementById(anim.id);
-                    // 先切換類別以立即套用無動畫的透明樣式
                     anim.el.classList.add('level-2-mode');
                     const elRect = anim.el.getBoundingClientRect();
                     anim.x = elRect.left - rect.left;
                     anim.y = elRect.top - rect.top;
-                    // 設定高度隨機的方向與速度 (0.6 ~ 1.8 倍速)
                     anim.dirX = (Math.random() > 0.5 ? 1 : -1) * (0.6 + Math.random() * 1.2);
                     anim.dirY = (Math.random() > 0.5 ? 1 : -1) * (0.6 + Math.random() * 1.2);
                 });
             } else {
                 btn.innerHTML = 'Level 2 🪁';
                 btn.classList.replace('bg-[#3b82f6]', 'bg-[#8b5cf6]');
-                document.querySelector('#target-0 .animal-img').src = 'img/cat.png';
-                document.querySelector('#target-1 .animal-img').src = 'img/turtle.png';
-                document.querySelector('#target-2 .animal-img').src = 'img/bird.png';
-                document.querySelector('#target-3 .animal-img').src = 'img/rabbit.png';
+                // 恢復第一關靜態圖片
+                document.querySelector('#target-0 .animal-img').src = 'https://i.ibb.co/qLSbRGjP/cat.png';
+                document.querySelector('#target-1 .animal-img').src = 'https://i.ibb.co/tpHfWWJK/turtle.png';
+                document.querySelector('#target-2 .animal-img').src = 'https://i.ibb.co/RT0KwhTL/bird.png';
+                document.querySelector('#target-3 .animal-img').src = 'https://i.ibb.co/Ngcgccsy/rabbit.png';
                 const defaultStyles = [{top:'4cqh',left:'4cqh'}, {top:'4cqh',right:'4cqh'}, {bottom:'4cqh',left:'4cqh'}, {bottom:'4cqh',right:'4cqh'}];
                 animalsPos.forEach((anim, i) => {
                     anim.el.classList.remove('level-2-mode');
@@ -448,7 +452,6 @@
                 if (!audioCtx) audioCtx = new AudioCtx();
                 const silent = new Audio("data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQQAAAAAAA==");
                 silent.play();
-                bgmAudio.load();
             } catch (e) {}
         }
 
