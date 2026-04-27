@@ -401,6 +401,10 @@
             if (isLevel2) {
                 btn.innerHTML = 'Level 1 🏠';
                 btn.classList.replace('bg-[#8b5cf6]', 'bg-[#3b82f6]');
+                
+                // 第二關：背景音樂加速
+                bgmAudio.playbackRate = 1.25;
+
                 // 更新第二關動態圖片 (已預載)
                 document.querySelector('#target-0 .animal-img').src = 'https://i.ibb.co/H847XD1/cat-walk.gif';
                 document.querySelector('#target-1 .animal-img').src = 'https://i.ibb.co/7dvB3gTs/turtle-2.png'; 
@@ -419,6 +423,10 @@
             } else {
                 btn.innerHTML = 'Level 2 🪁';
                 btn.classList.replace('bg-[#3b82f6]', 'bg-[#8b5cf6]');
+
+                // 第一關：背景音樂速度回到正常
+                bgmAudio.playbackRate = 1.0;
+
                 // 恢復第一關靜態圖片
                 document.querySelector('#target-0 .animal-img').src = 'https://i.ibb.co/qLSbRGjP/cat.png';
                 document.querySelector('#target-1 .animal-img').src = 'https://i.ibb.co/tpHfWWJK/turtle.png';
