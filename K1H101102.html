@@ -18,7 +18,7 @@
         .btn-action:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
         .btn-action:active { transform: translateY(0) scale(0.98); }
         
-        #video-container { position: relative; width: 100%; aspect-ratio: 4/3; background: #000; border-radius: 1rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); }
+        #video-container { position: relative; width: 100%; aspect-ratio: 4/3; background: #000; border-radius: 1rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); cursor: pointer; }
         
         /* 攝影機鏡像處理：在 JS 中處理繪圖鏡像，避免 Emoji 標籤反轉 */
         #output_canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -52,7 +52,7 @@
     <div class="max-w-6xl mx-auto">
         <header class="text-center mb-8">
             <h1 class="text-4xl font-extrabold text-green-700 mb-2">🎈 英語動態闖關遊戲 🏃‍♂️</h1>
-            <p class="text-gray-600 text-lg">老師選擇題目，學生先「碰觸道具」再「做出動作」！</p>
+            <p class="text-gray-600 text-lg">老師選擇題目，學生先「碰觸或點擊道具」再「做出動作」！</p>
         </header>
 
         <div class="flex flex-col lg:flex-row gap-8">
@@ -189,6 +189,49 @@
         const progressText = document.getElementById('progress-text');
         const successOverlay = document.getElementById('success-overlay');
 
+        // --- 滑鼠點擊支援 ---
+        canvasElement.addEventListener('click', (e) => {
+            if (gamePhase === 'selecting' && currentQuestion) {
+                const rect = canvasElement.getBoundingClientRect();
+                // 計算點擊座標在 Canvas 內部實際解析度的位置
+                const scaleX = canvasElement.width / rect.width;
+                const scaleY = canvasElement.height / rect.height;
+                const cx = (e.clientX - rect.left) * scaleX;
+                const cy = (e.clientY - rect.top) * scaleY;
+
+                for (let prop of SCREEN_PROPS) {
+                    const px = prop.x * canvasElement.width;
+                    const py = prop.y * canvasElement.height;
+                    const dist = Math.hypot(cx - px, cy - py);
+                    
+                    if (dist < 120) { // 寬容的點擊範圍
+                        if (prop.id === currentQuestion) {
+                            activateProp(currentQuestion, { x: 0.5, y: 0.5 }); // 若使用滑鼠點擊，預設將手放在畫面中間
+                        } else {
+                            speakChinese("不對喔，請再找找看！");
+                        }
+                        break;
+                    }
+                }
+            }
+        });
+
+        // --- 共用的道具啟動邏輯 ---
+        function activateProp(action, handPos) {
+            gamePhase = 'playing';
+            speakChinese("很好！現在開始動作！");
+            progressContainer.classList.remove('hidden');
+            
+            if(action === 'Roll a hoop') actionHint.innerHTML = "✨ <strong>任務：手握圓框，左右水平來回轉動！</strong>";
+            if(action === 'Bounce a balloon') actionHint.innerHTML = "✨ <strong>任務：手由下往上，快速拍打氣球！</strong>";
+            if(action === 'Blow bubbles') actionHint.innerHTML = "✨ <strong>任務：把泡泡框靠近嘴巴，用力吹氣！</strong>";
+            if(action === 'Stack cups') actionHint.innerHTML = "✨ <strong>任務：雙手拿著杯子，在胸前靠攏排列！</strong>";
+            
+            lastHandPos = { x: handPos.x, y: handPos.y };
+            balloonYOffset = -80;
+            hoopRotation = 0;
+        }
+
         // --- 語音系統 ---
         function speak(text, rate = 0.85) {
             if ('speechSynthesis' in window) {
@@ -225,7 +268,7 @@
             progressContainer.classList.add('hidden'); // 還沒選到道具前不顯示進度條
             
             targetActionText.innerHTML = `任務：<span class="text-2xl ml-2 text-blue-600 font-black">${action}</span>`;
-            actionHint.innerHTML = `👉 <strong>第一步：請用手碰觸畫面上的對應道具！</strong>`;
+            actionHint.innerHTML = `👉 <strong>第一步：請「用手碰觸」或「滑鼠點擊」對應道具！</strong>`;
             
             speak(action);
         }
@@ -258,10 +301,9 @@
 
         // --- 輔助函式：取得離座標最近的手 ---
         function getActiveHand(landmarks) {
-            // 這裡傳入的是翻轉後的座標，直接抓取左右手腕
             const lWrist = landmarks[15];
             const rWrist = landmarks[16];
-            return lWrist.y < rWrist.y ? lWrist : rWrist; // 回傳舉得比較高的那隻手，或自己選定
+            return lWrist.y < rWrist.y ? lWrist : rWrist; 
         }
 
         // --- 繪圖特效系統 ---
@@ -286,13 +328,11 @@
                 ctx.strokeStyle = '#ffffff';
                 ctx.stroke();
 
-                // 畫 Emoji (由於我們手動鏡像了影像，文字可以直接正向畫出)
                 ctx.font = '60px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText(prop.emoji, px, py - 10);
                 
-                // 畫文字
                 ctx.font = 'bold 24px Arial';
                 ctx.fillStyle = 'white';
                 ctx.strokeStyle = 'black';
@@ -304,16 +344,20 @@
             });
         }
 
-        // 檢查手是否碰到道具 (碰撞偵測)
+        // 檢查手是否碰到道具 (碰撞偵測升級為精確的像素距離)
         function checkPropCollision(landmarks, cw, ch) {
-            const wrists = [landmarks[15], landmarks[16], landmarks[19], landmarks[20]]; // 手腕與食指
+            // 15: 左手腕, 16: 右手腕, 19: 左手食指, 20: 右手食指
+            const wrists = [landmarks[15], landmarks[16], landmarks[19], landmarks[20]]; 
             for (let prop of SCREEN_PROPS) {
-                const px = prop.x;
-                const py = prop.y;
+                const px = prop.x * cw;
+                const py = prop.y * ch;
                 for (let pt of wrists) {
-                    if (pt.visibility > 0.5) {
-                        const dist = Math.hypot(pt.x - px, pt.y - py);
-                        if (dist < 0.12) { // 觸碰判定半徑
+                    // 降低 visibility 的門檻，讓快速揮動的模糊手也能輕鬆點到
+                    if (pt && pt.visibility > 0.1) {
+                        const hx = pt.x * cw;
+                        const hy = pt.y * ch;
+                        const dist = Math.hypot(hx - px, hy - py);
+                        if (dist < 120) { // 加大觸碰判定半徑至 120px，非常容易觸碰
                             return prop;
                         }
                     }
@@ -356,13 +400,18 @@
 
         // 繪製手中的互動道具
         function drawActiveProp(ctx, action, cw, ch, landmarks) {
-            const activeHand = getActiveHand(landmarks);
-            const px = activeHand.x * cw;
-            const py = activeHand.y * ch;
+            // 如果沒有抓到骨架（例如純用滑鼠點擊），先給一個中央預設值
+            let px = cw / 2;
+            let py = ch / 2;
+
+            if (landmarks && landmarks[15]) {
+                const activeHand = getActiveHand(landmarks);
+                px = activeHand.x * cw;
+                py = activeHand.y * ch;
+            }
 
             ctx.save();
             if (action === 'Roll a hoop') {
-                // 畫正在被轉動的圈圈
                 ctx.translate(px, py);
                 ctx.rotate(hoopRotation);
                 ctx.beginPath();
@@ -370,7 +419,6 @@
                 ctx.lineWidth = 15;
                 ctx.strokeStyle = '#f97316';
                 ctx.stroke();
-                // 畫十字記號讓旋轉視覺明顯
                 ctx.beginPath();
                 ctx.arc(65, 0, 10, 0, Math.PI * 2);
                 ctx.fillStyle = '#fff';
@@ -381,23 +429,19 @@
                 ctx.fill();
 
             } else if (action === 'Bounce a balloon') {
-                // 氣球浮在手上
                 const by = py + balloonYOffset;
-                // 線
                 ctx.beginPath();
                 ctx.moveTo(px, by + 40);
                 ctx.lineTo(px, py);
                 ctx.lineWidth = 3;
                 ctx.strokeStyle = 'white';
                 ctx.stroke();
-                // 氣球本體
                 ctx.font = '100px Arial';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillText('🎈', px, by);
                 
             } else if (action === 'Blow bubbles') {
-                // 畫泡泡杖
                 ctx.beginPath();
                 ctx.moveTo(px, py);
                 ctx.lineTo(px, py + 80);
@@ -407,21 +451,15 @@
                 ctx.lineWidth = 8; ctx.strokeStyle = '#ec4899'; ctx.stroke();
 
             } else if (action === 'Stack cups') {
-                // 畫排列中的杯子 (根據進度條堆疊)
-                const stackFactor = progress / 100; // 0 (散開) 到 1 (疊好)
+                const stackFactor = progress / 100;
                 ctx.font = '80px Arial';
                 ctx.textAlign = 'center';
-                
-                // 杯子 1 (底座左)
                 ctx.fillText('🥤', px - 80 + (40 * stackFactor), py + 40);
-                // 杯子 2 (底座右)
                 ctx.fillText('🥤', px + 80 - (40 * stackFactor), py + 40);
-                // 杯子 3 (頂端)
                 ctx.fillText('🥤', px, py - 40 + (20 * stackFactor));
             }
             ctx.restore();
         }
-
 
         // --- 主要 MediaPipe 處理迴圈 ---
         function onResults(results) {
@@ -440,48 +478,30 @@
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, cw, ch);
             
-            // 【關鍵】手動將攝影機影像左右鏡像繪製，這樣文字跟 Emoij 才不會反過來
             canvasCtx.translate(cw, 0);
             canvasCtx.scale(-1, 1);
             canvasCtx.drawImage(results.image, 0, 0, cw, ch);
-            canvasCtx.restore(); // 恢復正常座標系，接下來畫 UI 跟 Emoji 就不會反轉
+            canvasCtx.restore(); 
 
-            // 將 MediaPipe 的 Landmark 的 x 也做鏡像轉換，以符合畫面的正常座標
             let landmarks = null;
             if (results.poseLandmarks) {
-                landmarks = results.poseLandmarks.map(p => ({
-                    ...p,
-                    x: 1 - p.x // 翻轉 X 座標
-                }));
+                landmarks = results.poseLandmarks.map(p => ({ ...p, x: 1 - p.x }));
+            }
+
+            if (gamePhase === 'selecting') {
+                drawSelectionProps(canvasCtx, cw, ch);
             }
 
             if (landmarks) {
-                // 畫半透明輔助骨架
                 drawConnectors(canvasCtx, landmarks, POSE_CONNECTIONS, {color: 'rgba(255,255,255,0.3)', lineWidth: 2});
                 drawLandmarks(canvasCtx, landmarks, {color: 'rgba(59, 130, 246, 0.5)', lineWidth: 1, radius: 2});
 
                 if (gamePhase === 'selecting') {
-                    // 1. 選擇道具階段
-                    drawSelectionProps(canvasCtx, cw, ch);
-                    
+                    // 1. 手勢實體觸碰道具
                     const touchedProp = checkPropCollision(landmarks, cw, ch);
                     if (touchedProp) {
                         if (touchedProp.id === currentQuestion) {
-                            // 摸對道具了！進入遊玩階段
-                            gamePhase = 'playing';
-                            speakChinese("很好！現在開始動作！");
-                            progressContainer.classList.remove('hidden');
-                            
-                            // 更新提示文字
-                            if(currentQuestion === 'Roll a hoop') actionHint.innerHTML = "✨ <strong>任務：手握圓框，左右水平來回轉動！</strong>";
-                            if(currentQuestion === 'Bounce a balloon') actionHint.innerHTML = "✨ <strong>任務：手由下往上，快速拍打氣球！</strong>";
-                            if(currentQuestion === 'Blow bubbles') actionHint.innerHTML = "✨ <strong>任務：把泡泡框靠近嘴巴，用力吹氣！</strong>";
-                            if(currentQuestion === 'Stack cups') actionHint.innerHTML = "✨ <strong>任務：雙手拿著杯子，在胸前靠攏排列！</strong>";
-                            
-                            const hand = getActiveHand(landmarks);
-                            lastHandPos = {x: hand.x, y: hand.y};
-                            balloonYOffset = -80;
-                            hoopRotation = 0;
+                            activateProp(currentQuestion, getActiveHand(landmarks));
                         }
                     }
 
@@ -492,36 +512,30 @@
                     const dx = activeHand.x - lastHandPos.x;
                     const dy = activeHand.y - lastHandPos.y;
 
-                    // 畫手中道具
                     drawActiveProp(canvasCtx, currentQuestion, cw, ch, landmarks);
 
-                    // 判斷特定動作
                     switch (currentQuestion) {
                         case 'Roll a hoop':
-                            // 左右移動代表轉動
                             if (Math.abs(dx) > 0.005) {
-                                hoopRotation += dx * 15; // 轉動畫布
+                                hoopRotation += dx * 15;
                                 isActionActive = true;
-                                progress += Math.abs(dx) * 250; // 累積進度
+                                progress += Math.abs(dx) * 250; 
                             }
                             break;
 
                         case 'Bounce a balloon':
-                            // 手往上移動 (y 變小)
                             if (dy < -0.01) {
-                                balloonVelocity = -15; // 給氣球向上的速度
+                                balloonVelocity = -15; 
                                 isActionActive = true;
                                 progress += 6;
                             }
-                            // 氣球物理效果
-                            balloonVelocity += 1.5; // 重力
+                            balloonVelocity += 1.5; 
                             balloonYOffset += balloonVelocity;
-                            if (balloonYOffset > -40) { balloonYOffset = -40; balloonVelocity = 0; } // 掉回手上
+                            if (balloonYOffset > -40) { balloonYOffset = -40; balloonVelocity = 0; } 
                             if (balloonYOffset < -200) balloonYOffset = -200;
                             break;
 
                         case 'Blow bubbles':
-                            // 靠近嘴巴 (Landmark 9, 10)
                             const mouthY = (landmarks[9].y + landmarks[10].y) / 2;
                             const mouthX = (landmarks[9].x + landmarks[10].x) / 2;
                             const distToMouth = Math.hypot(activeHand.x - mouthX, activeHand.y - mouthY);
@@ -529,7 +543,6 @@
                             if (distToMouth < 0.25) {
                                 isActionActive = true;
                                 progress += 2;
-                                // 噴發泡泡
                                 if (Math.random() > 0.4) {
                                     bubbles.push(new Bubble(activeHand.x * cw, (activeHand.y * ch) - 30));
                                 }
@@ -537,7 +550,6 @@
                             break;
 
                         case 'Stack cups':
-                            // 雙手靠攏
                             const distHands = Math.hypot(landmarks[15].x - landmarks[16].x, landmarks[15].y - landmarks[16].y);
                             if (distHands < 0.25) {
                                 isActionActive = true;
@@ -546,7 +558,6 @@
                             break;
                     }
 
-                    // 沒做動作時稍微退步
                     if (!isActionActive) progress -= 0.5;
                     progress = Math.max(0, Math.min(100, progress));
                     updateProgressBar();
@@ -555,26 +566,28 @@
 
                     if (progress >= 100) {
                         handleSuccess();
-                        // 爆發特效
                         if (currentQuestion === 'Blow bubbles') {
                             for(let i=0; i<40; i++) bubbles.push(new Bubble(activeHand.x * cw, activeHand.y * ch - 30));
                         }
                     }
                 }
             } else {
+                // 如果沒抓到人，且是用滑鼠點進 playing 階段，還是要把道具畫出來
+                if (gamePhase === 'playing') {
+                    drawActiveProp(canvasCtx, currentQuestion, cw, ch, null);
+                }
+
                 if (gamePhase === 'playing' && progress > 0) {
                     progress -= 1;
                     updateProgressBar();
                 }
             }
 
-            // 更新並繪製泡泡
             bubbles.forEach(b => b.update());
             bubbles = bubbles.filter(b => b.opacity > 0);
             bubbles.forEach(b => b.draw(canvasCtx));
         }
 
-        // --- 初始化 MediaPipe Pose ---
         const pose = new Pose({locateFile: (file) => {
             return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
         }});
@@ -587,7 +600,6 @@
         });
         pose.onResults(onResults);
 
-        // --- 初始化攝影機 ---
         const camera = new Camera(videoElement, {
             onFrame: async () => {
                 await pose.send({image: videoElement});
