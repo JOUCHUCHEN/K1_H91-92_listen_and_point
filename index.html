@@ -326,6 +326,12 @@
         let isBgmPlaying = true;
         let isLevel2 = false;
 
+        // 新增：記錄計時器的變數
+        let successTimeoutId = null;
+        let errorTimeoutId = null;
+        let successVoiceTimeoutId = null;
+        let errorVoiceTimeoutId = null;
+
         // 預載音訊與圖片
         async function preLoadAssets() {
             // 預載音訊
@@ -485,10 +491,21 @@
 
         function playRound(btnIndex) {
             if (!isCameraActive) return;
+
+            // ===== 強制清除舊計時器 =====
+            if (successTimeoutId) clearTimeout(successTimeoutId);
+            if (errorTimeoutId) clearTimeout(errorTimeoutId);
+            if (successVoiceTimeoutId) clearTimeout(successVoiceTimeoutId);
+            if (errorVoiceTimeoutId) clearTimeout(errorVoiceTimeoutId);
+
             resetBoxes();
             currentTargetId = btnIndex;
+            
+            // 確保這些狀態完全重置
             canScore = true;
             isSuccess = false;
+            errorCooldown = false; 
+
             playBoostedAudio(animals[currentTargetId].src, WORD_BOOST);
         }
 
@@ -548,21 +565,42 @@
             isSuccess = true; canScore = false;
             document.getElementById(`target-${currentTargetId}`).classList.add('success');
             playBoostedAudio(feedbackSounds.correctFX, FEEDBACK_BOOST);
-            setTimeout(() => {
+            
+            // 賦值給 successVoiceTimeoutId
+            successVoiceTimeoutId = setTimeout(() => {
                 const successVoices = [feedbackSounds.great, feedbackSounds.goodJob, feedbackSounds.wayToGo];
                 const voice = successVoices[Math.floor(Math.random() * successVoices.length)];
                 playBoostedAudio(voice, FEEDBACK_BOOST);
             }, 100);
+            
             confetti({ particleCount: 150, spread: 80, origin: { y: 0.7 } });
-            setTimeout(() => { if (isSuccess) { resetBoxes(); currentTargetId = -1; isSuccess = false; } }, 2000);
+            
+            // 賦值給 successTimeoutId
+            successTimeoutId = setTimeout(() => { 
+                if (isSuccess) { 
+                    resetBoxes(); 
+                    currentTargetId = -1; 
+                    isSuccess = false; 
+                } 
+            }, 2000);
         }
 
         function triggerError(hitId) {
             errorCooldown = true;
             document.getElementById(`target-${hitId}`).classList.add('wrong');
             playBoostedAudio(feedbackSounds.errorFX, FEEDBACK_BOOST);
-            setTimeout(() => { playBoostedAudio(feedbackSounds.tryAgain, FEEDBACK_BOOST); }, 100);
-            setTimeout(() => { document.getElementById(`target-${hitId}`).classList.remove('wrong'); errorCooldown = false; }, 500);
+            
+            // 賦值給 errorVoiceTimeoutId
+            errorVoiceTimeoutId = setTimeout(() => { 
+                playBoostedAudio(feedbackSounds.tryAgain, FEEDBACK_BOOST); 
+            }, 100);
+            
+            // 賦值給 errorTimeoutId
+            errorTimeoutId = setTimeout(() => { 
+                const el = document.getElementById(`target-${hitId}`);
+                if (el) el.classList.remove('wrong'); 
+                errorCooldown = false; 
+            }, 500);
         }
 
         const hands = new Hands({ locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}` });
