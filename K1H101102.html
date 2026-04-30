@@ -20,10 +20,8 @@
         
         #video-container { position: relative; width: 100%; aspect-ratio: 4/3; background: #000; border-radius: 1rem; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); cursor: pointer; }
         
-        /* 攝影機鏡像處理：在 JS 中處理繪圖鏡像，避免 Emoji 標籤反轉 */
+        /* 攝影機鏡像處理 */
         #output_canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-        
-        /* 隱藏原始影片，只顯示 Canvas */
         .input_video { display: none; }
 
         .success-overlay {
@@ -120,7 +118,6 @@
 
                 <!-- 攝影機與進度條 -->
                 <div id="video-container">
-                    <!-- 載入中畫面 -->
                     <div id="loading-screen" class="absolute inset-0 bg-gray-900 flex flex-col items-center justify-center text-white z-10">
                         <div class="loader mb-4"></div>
                         <p>正在啟動 AI 攝影機與姿態模型...</p>
@@ -130,14 +127,12 @@
                     <video class="input_video" autoplay playsinline></video>
                     <canvas id="output_canvas" width="1280" height="720"></canvas>
                     
-                    <!-- 過關動畫覆蓋層 -->
                     <div id="success-overlay" class="success-overlay">
                         <div class="text-6xl mb-4">🎉</div>
                         <h3 class="text-6xl font-extrabold mb-4 drop-shadow-md text-yellow-300 tracking-wider">回答正確！</h3>
                         <p class="text-3xl font-bold drop-shadow-md text-white">Excellent Job!</p>
                     </div>
 
-                    <!-- 進度條 -->
                     <div id="progress-container" class="absolute bottom-6 left-1/2 transform -translate-x-1/2 w-4/5 hidden">
                         <div class="flex justify-between text-white text-sm font-bold mb-1 drop-shadow-md">
                             <span>動作完成度...</span>
@@ -148,7 +143,6 @@
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     </div>
@@ -159,9 +153,11 @@
         let currentQuestion = null;
         let progress = 0;
         let isModelLoaded = false;
+        let lastWrongTouchTime = 0; // 防呆冷卻時間
         
         // 互動動畫變數
-        let lastHandPos = { x: 0, y: 0 };
+        let lastLeftHand = { x: 0, y: 0 };
+        let lastRightHand = { x: 0, y: 0 };
         let hoopRotation = 0;
         let balloonYOffset = -50;
         let balloonVelocity = 0;
@@ -169,10 +165,10 @@
 
         // --- 畫面上漂浮的道具定義 ---
         const SCREEN_PROPS = [
-            { id: 'Roll a hoop', x: 0.2, y: 0.3, emoji: '⭕', color: '#f97316', text: 'Hoop' },
-            { id: 'Bounce a balloon', x: 0.8, y: 0.3, emoji: '🎈', color: '#ec4899', text: 'Balloon' },
-            { id: 'Blow bubbles', x: 0.2, y: 0.7, emoji: '🪄', color: '#3b82f6', text: 'Bubbles' },
-            { id: 'Stack cups', x: 0.8, y: 0.7, emoji: '🥤', color: '#a855f7', text: 'Cups' }
+            { id: 'Roll a hoop', x: 0.25, y: 0.3, emoji: '⭕', color: '#f97316', text: 'Hoop' },
+            { id: 'Bounce a balloon', x: 0.75, y: 0.3, emoji: '🎈', color: '#ec4899', text: 'Balloon' },
+            { id: 'Blow bubbles', x: 0.25, y: 0.7, emoji: '🪄', color: '#3b82f6', text: 'Bubbles' },
+            { id: 'Stack cups', x: 0.75, y: 0.7, emoji: '🥤', color: '#a855f7', text: 'Cups' }
         ];
 
         // --- DOM 元素 ---
@@ -193,7 +189,6 @@
         canvasElement.addEventListener('click', (e) => {
             if (gamePhase === 'selecting' && currentQuestion) {
                 const rect = canvasElement.getBoundingClientRect();
-                // 計算點擊座標在 Canvas 內部實際解析度的位置
                 const scaleX = canvasElement.width / rect.width;
                 const scaleY = canvasElement.height / rect.height;
                 const cx = (e.clientX - rect.left) * scaleX;
@@ -202,13 +197,11 @@
                 for (let prop of SCREEN_PROPS) {
                     const px = prop.x * canvasElement.width;
                     const py = prop.y * canvasElement.height;
-                    const dist = Math.hypot(cx - px, cy - py);
-                    
-                    if (dist < 120) { // 寬容的點擊範圍
+                    if (Math.hypot(cx - px, cy - py) < 150) { 
                         if (prop.id === currentQuestion) {
-                            activateProp(currentQuestion, { x: 0.5, y: 0.5 }); // 若使用滑鼠點擊，預設將手放在畫面中間
+                            activateProp(currentQuestion);
                         } else {
-                            speakChinese("不對喔，請再找找看！");
+                            speakChinese("Oops! 找錯囉，再試試！");
                         }
                         break;
                     }
@@ -217,17 +210,16 @@
         });
 
         // --- 共用的道具啟動邏輯 ---
-        function activateProp(action, handPos) {
+        function activateProp(action) {
             gamePhase = 'playing';
             speakChinese("很好！現在開始動作！");
             progressContainer.classList.remove('hidden');
             
-            if(action === 'Roll a hoop') actionHint.innerHTML = "✨ <strong>任務：手握圓框，左右水平來回轉動！</strong>";
+            if(action === 'Roll a hoop') actionHint.innerHTML = "✨ <strong>任務：雙手或單手握圓框，左右水平來回轉動！</strong>";
             if(action === 'Bounce a balloon') actionHint.innerHTML = "✨ <strong>任務：手由下往上，快速拍打氣球！</strong>";
             if(action === 'Blow bubbles') actionHint.innerHTML = "✨ <strong>任務：把泡泡框靠近嘴巴，用力吹氣！</strong>";
             if(action === 'Stack cups') actionHint.innerHTML = "✨ <strong>任務：雙手拿著杯子，在胸前靠攏排列！</strong>";
             
-            lastHandPos = { x: handPos.x, y: handPos.y };
             balloonYOffset = -80;
             hoopRotation = 0;
         }
@@ -237,8 +229,7 @@
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 const msg = new SpeechSynthesisUtterance(text);
-                msg.lang = 'en-US';
-                msg.rate = rate;
+                msg.lang = 'en-US'; msg.rate = rate;
                 window.speechSynthesis.speak(msg);
             }
         }
@@ -252,23 +243,20 @@
 
         // --- 老師點擊出題 ---
         function startGame(action) {
-            if (!isModelLoaded) {
-                alert("請等待 AI 模型載入完成！");
-                return;
-            }
+            if (!isModelLoaded) return alert("請等待 AI 模型載入完成！");
 
             currentQuestion = action;
-            gamePhase = 'selecting'; // 進入「選擇道具」階段
+            gamePhase = 'selecting';
             progress = 0;
             bubbles = []; 
             updateProgressBar();
             
             successOverlay.classList.remove('active');
             gamePrompt.classList.remove('hidden');
-            progressContainer.classList.add('hidden'); // 還沒選到道具前不顯示進度條
+            progressContainer.classList.add('hidden');
             
             targetActionText.innerHTML = `任務：<span class="text-2xl ml-2 text-blue-600 font-black">${action}</span>`;
-            actionHint.innerHTML = `👉 <strong>第一步：請「用手碰觸」或「滑鼠點擊」對應道具！</strong>`;
+            actionHint.innerHTML = `👉 <strong>第一步：請「用黃色光圈」或「滑鼠」碰觸畫面的道具！</strong>`;
             
             speak(action);
         }
@@ -277,10 +265,8 @@
             gamePhase = 'idle';
             progress = 100;
             updateProgressBar();
-            
             successOverlay.classList.add('active');
             progressContainer.classList.add('hidden');
-            
             speakChinese("回答正確！");
             setTimeout(() => { speak("Excellent!", 1.0); }, 1000);
 
@@ -299,15 +285,26 @@
             progressText.innerText = `${Math.floor(clamped)}%`;
         }
 
-        // --- 輔助函式：取得離座標最近的手 ---
-        function getActiveHand(landmarks) {
-            const lWrist = landmarks[15];
-            const rWrist = landmarks[16];
-            return lWrist.y < rWrist.y ? lWrist : rWrist; 
+        // --- 視覺回饋：畫出手部光圈 ---
+        function drawHandAuras(ctx, landmarks, cw, ch) {
+            // 取手腕與手指關節，畫出明顯黃色光圈
+            const points = [15, 16, 17, 18, 19, 20]; 
+            ctx.save();
+            points.forEach(i => {
+                const pt = landmarks[i];
+                if (pt && pt.visibility > 0.05) { // 降低信心門檻，有抓到就畫
+                    ctx.beginPath();
+                    ctx.arc(pt.x * cw, pt.y * ch, 25, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(250, 204, 21, 0.7)'; // 黃色光圈
+                    ctx.fill();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.stroke();
+                }
+            });
+            ctx.restore();
         }
 
-        // --- 繪圖特效系統 ---
-        
         // 畫四個角落的待選道具
         function drawSelectionProps(ctx, cw, ch) {
             SCREEN_PROPS.forEach(prop => {
@@ -315,51 +312,31 @@
                 const py = prop.y * ch;
 
                 ctx.save();
-                // 畫發光底座
-                ctx.beginPath();
-                ctx.arc(px, py, 70, 0, Math.PI * 2);
-                ctx.fillStyle = prop.color;
-                ctx.globalAlpha = 0.5;
-                ctx.fill();
-                
-                // 畫白框
-                ctx.globalAlpha = 1.0;
-                ctx.lineWidth = 5;
-                ctx.strokeStyle = '#ffffff';
-                ctx.stroke();
+                ctx.beginPath(); ctx.arc(px, py, 80, 0, Math.PI * 2); // 放大視覺底座
+                ctx.fillStyle = prop.color; ctx.globalAlpha = 0.6; ctx.fill();
+                ctx.globalAlpha = 1.0; ctx.lineWidth = 6; ctx.strokeStyle = '#ffffff'; ctx.stroke();
 
-                ctx.font = '60px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
+                ctx.font = '70px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillText(prop.emoji, px, py - 10);
                 
-                ctx.font = 'bold 24px Arial';
-                ctx.fillStyle = 'white';
-                ctx.strokeStyle = 'black';
-                ctx.lineWidth = 3;
-                ctx.strokeText(prop.text, px, py + 40);
-                ctx.fillText(prop.text, px, py + 40);
-                
+                ctx.font = 'bold 26px Arial'; ctx.fillStyle = 'white'; ctx.strokeStyle = 'black'; ctx.lineWidth = 4;
+                ctx.strokeText(prop.text, px, py + 45); ctx.fillText(prop.text, px, py + 45);
                 ctx.restore();
             });
         }
 
-        // 檢查手是否碰到道具 (碰撞偵測升級為精確的像素距離)
+        // 檢查手是否碰到道具
         function checkPropCollision(landmarks, cw, ch) {
-            // 15: 左手腕, 16: 右手腕, 19: 左手食指, 20: 右手食指
-            const wrists = [landmarks[15], landmarks[16], landmarks[19], landmarks[20]]; 
+            // 把手指跟手腕都算進去
+            const hitPoints = [15, 16, 17, 18, 19, 20, 21, 22]; 
             for (let prop of SCREEN_PROPS) {
                 const px = prop.x * cw;
                 const py = prop.y * ch;
-                for (let pt of wrists) {
-                    // 降低 visibility 的門檻，讓快速揮動的模糊手也能輕鬆點到
-                    if (pt && pt.visibility > 0.1) {
-                        const hx = pt.x * cw;
-                        const hy = pt.y * ch;
-                        const dist = Math.hypot(hx - px, hy - py);
-                        if (dist < 120) { // 加大觸碰判定半徑至 120px，非常容易觸碰
-                            return prop;
-                        }
+                for (let idx of hitPoints) {
+                    const pt = landmarks[idx];
+                    if (pt && pt.visibility > 0.05) {
+                        const dist = Math.hypot((pt.x * cw) - px, (pt.y * ch) - py);
+                        if (dist < 160) return prop; // 加大觸碰半徑至 160px
                     }
                 }
             }
@@ -369,94 +346,53 @@
         // 泡泡粒子
         class Bubble {
             constructor(x, y) {
-                this.x = x; this.y = y;
-                this.radius = Math.random() * 20 + 8;
-                this.speedY = Math.random() * -5 - 3;
-                this.speedX = Math.random() * 6 - 3;
-                this.opacity = 1;
-                this.wobble = Math.random() * Math.PI * 2;
+                this.x = x; this.y = y; this.radius = Math.random() * 20 + 8;
+                this.speedY = Math.random() * -5 - 3; this.speedX = Math.random() * 6 - 3;
+                this.opacity = 1; this.wobble = Math.random() * Math.PI * 2;
             }
             update() {
-                this.wobble += 0.1;
-                this.y += this.speedY;
-                this.x += this.speedX + Math.sin(this.wobble) * 2;
+                this.wobble += 0.1; this.y += this.speedY; this.x += this.speedX + Math.sin(this.wobble) * 2;
                 this.opacity -= 0.015;
             }
             draw(ctx) {
-                ctx.save();
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.save(); ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
                 const grad = ctx.createRadialGradient(this.x - this.radius*0.3, this.y - this.radius*0.3, this.radius*0.1, this.x, this.y, this.radius);
                 grad.addColorStop(0, `rgba(255, 255, 255, ${this.opacity})`);
                 grad.addColorStop(0.5, `rgba(173, 216, 230, ${this.opacity * 0.6})`);
                 grad.addColorStop(1, `rgba(216, 191, 216, ${this.opacity * 0.8})`);
-                ctx.fillStyle = grad;
-                ctx.strokeStyle = `rgba(255, 255, 255, ${this.opacity})`;
-                ctx.lineWidth = 2;
-                ctx.fill(); ctx.stroke();
-                ctx.restore();
+                ctx.fillStyle = grad; ctx.strokeStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.lineWidth = 2; ctx.fill(); ctx.stroke(); ctx.restore();
             }
         }
 
         // 繪製手中的互動道具
-        function drawActiveProp(ctx, action, cw, ch, landmarks) {
-            // 如果沒有抓到骨架（例如純用滑鼠點擊），先給一個中央預設值
-            let px = cw / 2;
-            let py = ch / 2;
-
-            if (landmarks && landmarks[15]) {
-                const activeHand = getActiveHand(landmarks);
-                px = activeHand.x * cw;
-                py = activeHand.y * ch;
-            }
-
+        function drawActiveProp(ctx, action, px, py, prog) {
             ctx.save();
             if (action === 'Roll a hoop') {
-                ctx.translate(px, py);
-                ctx.rotate(hoopRotation);
-                ctx.beginPath();
-                ctx.arc(0, 0, 80, 0, Math.PI * 2);
-                ctx.lineWidth = 15;
-                ctx.strokeStyle = '#f97316';
-                ctx.stroke();
-                ctx.beginPath();
-                ctx.arc(65, 0, 10, 0, Math.PI * 2);
-                ctx.fillStyle = '#fff';
-                ctx.fill();
-                ctx.beginPath();
-                ctx.arc(-65, 0, 10, 0, Math.PI * 2);
-                ctx.fillStyle = '#000';
-                ctx.fill();
+                ctx.translate(px, py); ctx.rotate(hoopRotation);
+                ctx.beginPath(); ctx.arc(0, 0, 90, 0, Math.PI * 2);
+                ctx.lineWidth = 18; ctx.strokeStyle = '#f97316'; ctx.stroke();
+                ctx.beginPath(); ctx.arc(75, 0, 12, 0, Math.PI * 2); ctx.fillStyle = '#fff'; ctx.fill();
+                ctx.beginPath(); ctx.arc(-75, 0, 12, 0, Math.PI * 2); ctx.fillStyle = '#000'; ctx.fill();
 
             } else if (action === 'Bounce a balloon') {
                 const by = py + balloonYOffset;
-                ctx.beginPath();
-                ctx.moveTo(px, by + 40);
-                ctx.lineTo(px, py);
-                ctx.lineWidth = 3;
-                ctx.strokeStyle = 'white';
-                ctx.stroke();
-                ctx.font = '100px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('🎈', px, by);
+                ctx.beginPath(); ctx.moveTo(px, by + 40); ctx.lineTo(px, py);
+                ctx.lineWidth = 4; ctx.strokeStyle = 'white'; ctx.stroke();
+                ctx.font = '120px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('🎈', px, by);
                 
             } else if (action === 'Blow bubbles') {
-                ctx.beginPath();
-                ctx.moveTo(px, py);
-                ctx.lineTo(px, py + 80);
-                ctx.lineWidth = 10; ctx.strokeStyle = '#facc15'; ctx.lineCap = 'round'; ctx.stroke();
-                ctx.beginPath();
-                ctx.arc(px, py - 30, 35, 0, Math.PI * 2);
-                ctx.lineWidth = 8; ctx.strokeStyle = '#ec4899'; ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px, py + 80);
+                ctx.lineWidth = 12; ctx.strokeStyle = '#facc15'; ctx.lineCap = 'round'; ctx.stroke();
+                ctx.beginPath(); ctx.arc(px, py - 35, 45, 0, Math.PI * 2);
+                ctx.lineWidth = 10; ctx.strokeStyle = '#ec4899'; ctx.stroke();
 
             } else if (action === 'Stack cups') {
-                const stackFactor = progress / 100;
-                ctx.font = '80px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText('🥤', px - 80 + (40 * stackFactor), py + 40);
-                ctx.fillText('🥤', px + 80 - (40 * stackFactor), py + 40);
-                ctx.fillText('🥤', px, py - 40 + (20 * stackFactor));
+                const stackFactor = prog / 100;
+                ctx.font = '90px Arial'; ctx.textAlign = 'center';
+                ctx.fillText('🥤', px - 90 + (45 * stackFactor), py + 40);
+                ctx.fillText('🥤', px + 90 - (45 * stackFactor), py + 40);
+                ctx.fillText('🥤', px, py - 50 + (30 * stackFactor));
             }
             ctx.restore();
         }
@@ -464,8 +400,7 @@
         // --- 主要 MediaPipe 處理迴圈 ---
         function onResults(results) {
             if (!isModelLoaded) {
-                isModelLoaded = true;
-                loadingScreen.style.display = 'none';
+                isModelLoaded = true; loadingScreen.style.display = 'none';
                 statusBadge.innerText = '✅ 系統準備就緒';
                 statusBadge.classList.replace('bg-gray-200', 'bg-green-100');
                 statusBadge.classList.replace('text-gray-600', 'text-green-700');
@@ -478,8 +413,7 @@
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, cw, ch);
             
-            canvasCtx.translate(cw, 0);
-            canvasCtx.scale(-1, 1);
+            canvasCtx.translate(cw, 0); canvasCtx.scale(-1, 1);
             canvasCtx.drawImage(results.image, 0, 0, cw, ch);
             canvasCtx.restore(); 
 
@@ -493,46 +427,80 @@
             }
 
             if (landmarks) {
+                // 畫半透明骨架
                 drawConnectors(canvasCtx, landmarks, POSE_CONNECTIONS, {color: 'rgba(255,255,255,0.3)', lineWidth: 2});
-                drawLandmarks(canvasCtx, landmarks, {color: 'rgba(59, 130, 246, 0.5)', lineWidth: 1, radius: 2});
+                drawLandmarks(canvasCtx, landmarks, {color: 'rgba(59, 130, 246, 0.4)', lineWidth: 1, radius: 2});
+                
+                // 畫出手部的視覺光圈 (方便學生知道手在哪)
+                drawHandAuras(canvasCtx, landmarks, cw, ch);
+
+                const lHand = landmarks[15] || {x: 0, y:0};
+                const rHand = landmarks[16] || {x: 0, y:0};
 
                 if (gamePhase === 'selecting') {
-                    // 1. 手勢實體觸碰道具
                     const touchedProp = checkPropCollision(landmarks, cw, ch);
                     if (touchedProp) {
                         if (touchedProp.id === currentQuestion) {
-                            activateProp(currentQuestion, getActiveHand(landmarks));
+                            // 初始化動作位置
+                            lastLeftHand = { x: lHand.x, y: lHand.y };
+                            lastRightHand = { x: rHand.x, y: rHand.y };
+                            activateProp(currentQuestion);
+                        } else {
+                            // 防呆提示，避免瘋狂廣播
+                            if (Date.now() - lastWrongTouchTime > 3000) {
+                                speakChinese("Oops! 是另一個喔！");
+                                lastWrongTouchTime = Date.now();
+                            }
                         }
                     }
 
                 } else if (gamePhase === 'playing') {
-                    // 2. 執行動作階段
                     let isActionActive = false;
-                    const activeHand = getActiveHand(landmarks);
-                    const dx = activeHand.x - lastHandPos.x;
-                    const dy = activeHand.y - lastHandPos.y;
+                    
+                    const ldx = lHand.x - lastLeftHand.x;
+                    const ldy = lHand.y - lastLeftHand.y;
+                    const rdx = rHand.x - lastRightHand.x;
+                    const rdy = rHand.y - lastRightHand.y;
 
-                    drawActiveProp(canvasCtx, currentQuestion, cw, ch, landmarks);
+                    // 決定道具要畫在哪一隻手上 (通常是舉得比較高的手)
+                    let activeHand = lHand.y < rHand.y ? lHand : rHand;
+                    let px = activeHand.x * cw;
+                    let py = activeHand.y * ch;
+
+                    // 如果是吹泡泡，畫在離嘴巴比較近的手
+                    if (currentQuestion === 'Blow bubbles') {
+                        const mouthX = (landmarks[9].x + landmarks[10].x) / 2;
+                        const mouthY = (landmarks[9].y + landmarks[10].y) / 2;
+                        const dL = Math.hypot(lHand.x - mouthX, lHand.y - mouthY);
+                        const dR = Math.hypot(rHand.x - mouthX, rHand.y - mouthY);
+                        activeHand = (dL < dR) ? lHand : rHand;
+                        px = activeHand.x * cw; py = activeHand.y * ch;
+                    }
+
+                    drawActiveProp(canvasCtx, currentQuestion, px, py, progress);
 
                     switch (currentQuestion) {
                         case 'Roll a hoop':
-                            if (Math.abs(dx) > 0.005) {
-                                hoopRotation += dx * 15;
+                            // 左右手任何一隻水平移動都算
+                            if (Math.abs(ldx) > 0.004 || Math.abs(rdx) > 0.004) {
+                                const moveX = Math.abs(ldx) > Math.abs(rdx) ? ldx : rdx;
+                                hoopRotation += moveX * 18;
                                 isActionActive = true;
-                                progress += Math.abs(dx) * 250; 
+                                progress += Math.max(Math.abs(ldx), Math.abs(rdx)) * 300; 
                             }
                             break;
 
                         case 'Bounce a balloon':
-                            if (dy < -0.01) {
-                                balloonVelocity = -15; 
+                            // 左右手任何一隻向上揮動都算
+                            if (ldy < -0.01 || rdy < -0.01) {
+                                balloonVelocity = -18; 
                                 isActionActive = true;
-                                progress += 6;
+                                progress += 8; // 增加進度速度
                             }
                             balloonVelocity += 1.5; 
                             balloonYOffset += balloonVelocity;
                             if (balloonYOffset > -40) { balloonYOffset = -40; balloonVelocity = 0; } 
-                            if (balloonYOffset < -200) balloonYOffset = -200;
+                            if (balloonYOffset < -250) balloonYOffset = -250;
                             break;
 
                         case 'Blow bubbles':
@@ -540,20 +508,20 @@
                             const mouthX = (landmarks[9].x + landmarks[10].x) / 2;
                             const distToMouth = Math.hypot(activeHand.x - mouthX, activeHand.y - mouthY);
                             
-                            if (distToMouth < 0.25) {
+                            if (distToMouth < 0.28) { // 放寬吹泡泡判定距離
                                 isActionActive = true;
-                                progress += 2;
-                                if (Math.random() > 0.4) {
-                                    bubbles.push(new Bubble(activeHand.x * cw, (activeHand.y * ch) - 30));
+                                progress += 2.5;
+                                if (Math.random() > 0.3) {
+                                    bubbles.push(new Bubble(activeHand.x * cw, (activeHand.y * ch) - 40));
                                 }
                             }
                             break;
 
                         case 'Stack cups':
-                            const distHands = Math.hypot(landmarks[15].x - landmarks[16].x, landmarks[15].y - landmarks[16].y);
-                            if (distHands < 0.25) {
+                            const distHands = Math.hypot(lHand.x - rHand.x, lHand.y - rHand.y);
+                            if (distHands < 0.28) { // 放寬疊杯子判定距離
                                 isActionActive = true;
-                                progress += 2.5;
+                                progress += 3.0;
                             }
                             break;
                     }
@@ -562,24 +530,21 @@
                     progress = Math.max(0, Math.min(100, progress));
                     updateProgressBar();
 
-                    lastHandPos = { x: activeHand.x, y: activeHand.y };
+                    // 更新雙手位置紀錄
+                    lastLeftHand = { x: lHand.x, y: lHand.y };
+                    lastRightHand = { x: rHand.x, y: rHand.y };
 
                     if (progress >= 100) {
                         handleSuccess();
                         if (currentQuestion === 'Blow bubbles') {
-                            for(let i=0; i<40; i++) bubbles.push(new Bubble(activeHand.x * cw, activeHand.y * ch - 30));
+                            for(let i=0; i<40; i++) bubbles.push(new Bubble(activeHand.x * cw, activeHand.y * ch - 40));
                         }
                     }
                 }
             } else {
-                // 如果沒抓到人，且是用滑鼠點進 playing 階段，還是要把道具畫出來
-                if (gamePhase === 'playing') {
-                    drawActiveProp(canvasCtx, currentQuestion, cw, ch, null);
-                }
-
+                if (gamePhase === 'playing') drawActiveProp(canvasCtx, currentQuestion, cw/2, ch/2, progress);
                 if (gamePhase === 'playing' && progress > 0) {
-                    progress -= 1;
-                    updateProgressBar();
+                    progress -= 1; updateProgressBar();
                 }
             }
 
@@ -588,24 +553,16 @@
             bubbles.forEach(b => b.draw(canvasCtx));
         }
 
-        const pose = new Pose({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-        }});
-        
+        const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
         pose.setOptions({
-            modelComplexity: 1,
-            smoothLandmarks: true,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
+            modelComplexity: 1, smoothLandmarks: true,
+            minDetectionConfidence: 0.4, minTrackingConfidence: 0.4 // 降低門檻，更好抓取
         });
         pose.onResults(onResults);
 
         const camera = new Camera(videoElement, {
-            onFrame: async () => {
-                await pose.send({image: videoElement});
-            },
-            width: 1280,
-            height: 720
+            onFrame: async () => { await pose.send({image: videoElement}); },
+            width: 1280, height: 720
         });
         
         camera.start().catch(err => {
